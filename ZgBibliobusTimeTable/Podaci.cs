@@ -1,10 +1,32 @@
 ﻿using HtmlAgilityPack;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace HtmlLinkChecker;
+
+public class PodaciZaSesiju
+{
+    public string Dan;
+    public string Datum;
+    public string Vrijeme;
+    public string Lokacija;
+
+    public PodaciZaSesiju(string dan, string datum, string vrijeme, string lokacija)
+    {
+        Dan = dan;
+        Datum = datum;
+        Vrijeme = vrijeme;
+        Lokacija = lokacija;
+    }
+
+    public override string ToString()
+    {
+        return $"{Dan,10} {Datum,12} {Vrijeme,12}  {Lokacija}";
+    }
+}
 
 public class PodaciZaDan
 {
     public HtmlNode danNode = null!;
-    public List<string> lokacije = [];
+    public List<string> VremenaILokacije = [];
 
     public string Dan
     {
