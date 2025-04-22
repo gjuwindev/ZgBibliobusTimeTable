@@ -49,8 +49,8 @@ internal class Program
                 Task t = 2 switch
                 {
                     // get the page content from the url and save it to the file
-                    1 => GetWebContent(client, url, htmlFilename),
-                    2 => ParseWebContent(client, htmlFilename, htmlLinksFilename),
+                    1 => Task.Run(() => GetWebContent(client, url, htmlFilename)),
+                    2 => Task.Run(() => ParseWebContent(client, htmlFilename, htmlLinksFilename, out List<Dan> dani)),
                     _ => throw new NotImplementedException()
                 };
 
@@ -66,11 +66,11 @@ internal class Program
         Console.ReadLine();
     }
 
-    private static async Task ParseWebContent(HttpClient client, string htmlFilename, string outputFilename)
+    private static void ParseWebContent(HttpClient client, string htmlFilename, string outputFilename, out List<Dan> dani)
     {
         StringBuilder sb = new();
 
-        List<Dan> dani = new();
+        dani = new();
         Dan? tekuciDan = null;
 
         string pageContent = System.IO.File.ReadAllText(htmlFilename);
@@ -111,13 +111,10 @@ internal class Program
 
                             if (tdCount == 3)
                             {
-                                if (tekuciDan is not null)
-                                {
-                                    dani.Add(tekuciDan);
-                                }
                                 tekuciDan = new Dan();
                                 tekuciDan.danNode = tableDatas[0];
                                 tekuciDan.lokacije.Add(GetLocation(tableDatas[1], tableDatas[2]));
+                                dani.Add(tekuciDan);
                             }
                             else if (tdCount == 2)
                             {
@@ -135,12 +132,8 @@ internal class Program
                                 Console.WriteLine("TableDatas count is not 2 or 3.");
                             }
                         }
-
                     }
                 }
-
-                if (tekuciDan is not null)
-                    dani.Add(tekuciDan);
 
                 tekuciDan = null;
             }
@@ -150,54 +143,10 @@ internal class Program
     private static string GetLocation(HtmlNode node1, HtmlNode node2)
     {
         string text1 = node1.InnerText.Trim().Replace(Environment.NewLine, " ").Replace("\n", " ").Trim();
-        string text2 = node2.InnerText.Trim().Replace(Environment.NewLine, " ").Replace("\n", " ").Trim();
+        string text2 = node2.InnerText.Trim().Replace(Environment.NewLine, " ").Replace("\n", " ").Replace(" ", "").Trim();
+        text2 = text2.Replace(" ", "").Replace("&nbsp;", "");
+        if (text2.IndexOf(':') == 1) text2 = "0" + text2;
         return text2 + "#" + text1;
-    }
-
-    private static async Task ParseWebContent_OLD(HttpClient client, string htmlFilename, string outputFilename)
-    {
-        StringBuilder sb = new();
-
-        string pageContent = System.IO.File.ReadAllText(htmlFilename);
-
-        // Parse the HTML content using HtmlAgilityPack
-        HtmlDocument doc = new HtmlDocument();
-        doc.LoadHtml(pageContent);
-
-        // Extract specific elements (e.g., all <a> tags)
-        var links = doc.DocumentNode.SelectNodes("//a[@href]");
-        if (links != null)
-        {
-            foreach (var link in links)
-            {
-                string href = link.GetAttributeValue("href", string.Empty).Trim().Replace(Environment.NewLine, " ");
-                string href2 = href[0..Math.Min(50, href.Length)];
-
-                string text = link.InnerText.Trim().Replace(Environment.NewLine, " ").Replace("\n", " ");
-                string text2 = text[0..Math.Min(50, text.Length)];
-
-                string name = $"{text2,50}: {href2}";
-                Console.Write(name);
-
-                try
-                {
-                    var response = await client.GetByteArrayAsync(href);
-                    Console.WriteLine("  :: OK ::");
-                    sb.AppendLine(name + "  :: OK ::");
-                }
-                catch (Exception _)
-                {
-                    Console.WriteLine("  *****  FAIL  *****");
-                    sb.AppendLine(name + "  *****  FAIL  *****");
-                }
-
-                System.IO.File.WriteAllText(htmlFilename.Replace(".html", "_links.txt"), sb.ToString());
-            }
-        }
-        else
-        {
-            Console.WriteLine("No links found on the page.");
-        }
     }
 
     private static async Task GetWebContent(HttpClient client, string url, string htmlFilename)
