@@ -1,5 +1,6 @@
 ﻿using HtmlAgilityPack;
 using HtmlLinkChecker;
+using System.Diagnostics;
 using System.Text;
 
 namespace ZgBibliobusTimeTable;
@@ -38,7 +39,7 @@ public static class WebContent
                 {
                     tekuciDan = new PodaciZaDan();
                     tekuciDan.danNode = tableDatas[0];
-                    tekuciDan.lokacije.Add(GetLocation(tableDatas[1], tableDatas[2]));
+                    tekuciDan.VremenaILokacije.Add(tableDatas[2].InnerText + "#" + tableDatas[1].InnerText);
                     dani.Add(tekuciDan);
                 }
                 else if (tdCount == 2)
@@ -46,7 +47,7 @@ public static class WebContent
                     if (tekuciDan.danNode is null)
                         throw new Exception("Tekuci dan je prazan.");
 
-                    tekuciDan.lokacije.Add(GetLocation(tableDatas[0], tableDatas[1]));
+                    tekuciDan.VremenaILokacije.Add(tableDatas[1].InnerText + "#" + tableDatas[0].InnerText);
                 }
                 else
                     throw new Exception("TableDatas count is not 2 or 3.");
@@ -89,14 +90,5 @@ public static class WebContent
                 Console.WriteLine($"An error occurred: {ex.Message}");
             }
         }
-    }
-
-    private static string GetLocation(HtmlNode node1, HtmlNode node2)
-    {
-        string text1 = node1.InnerText.Trim().Replace(Environment.NewLine, " ").Replace("\n", " ").Trim();
-        string text2 = node2.InnerText.Trim().Replace(Environment.NewLine, " ").Replace("\n", " ").Replace(" ", "").Trim();
-        text2 = text2.Replace(" ", "").Replace("&nbsp;", "");
-        if (text2.IndexOf(':') == 1) text2 = "0" + text2;
-        return text2 + "#" + text1;
     }
 }
