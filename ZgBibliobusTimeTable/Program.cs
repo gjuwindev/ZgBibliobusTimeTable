@@ -1,18 +1,113 @@
 ﻿using HtmlAgilityPack;
+using System.Text;
 
 namespace ZgBibliobusTimeTable;
 
 internal class Program
 {
-    private static List<DateTime> IzvadiDatume(HtmlNode danNode)
+    private static (List<DateTime> sviDatumi, List<DateTime> radniDatumi, List<DateTime> neradniDatumi) IzvadiDatume(HtmlNode danNode)
     {
-        //if (danNode.InnerText.IndexOf("30.5.") > -1)
-            IzvadiDatume2("", danNode);
+        (string prviDan, string sviDatumi, string radniDatumi, string neradniDatumi) = IzvadiStringDatume(danNode);
 
-        return new List<DateTime>();
+        List<DateTime> sviDatumiList = StringDatumiToDateList(sviDatumi);
+        List<DateTime> radniDatumiList = StringDatumiToDateList(radniDatumi);
+        List<DateTime> neradniDatumiList = StringDatumiToDateList(neradniDatumi);
+
+        return (sviDatumiList, radniDatumiList, neradniDatumiList);
     }
 
-    private static void IzvadiDatume2(string parentNodeName, HtmlNode node)
+    private static List<DateTime> StringDatumiToDateList(string stringDatumi)
+    {
+        List<DateTime> datumi = new List<DateTime>();
+
+        string[] parts = stringDatumi.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (string part in parts)
+        {
+            if (DateTime.TryParse(part, out DateTime datum))
+            {
+                datumi.Add(datum);
+            }
+            else
+            {
+                Console.WriteLine($"Neispravan datum: {part}");
+            }
+        }
+
+        return datumi;
+    }
+
+    private static (string prviDan, string sviDatumi, string radniDatumi, string neradniDatumi) IzvadiStringDatume(HtmlNode danNode)
+    {
+        string sviDatumi = IzvadiSveDatume(danNode);
+        string praznicniDatumi = IzvadiPraznicneDatume(danNode);
+        string radniDatumi = sviDatumi;
+
+        string[] sviParts = sviDatumi.Split(['\t', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string[] praznicniParts = praznicniDatumi.Split(['\t', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        string sviPrviDan = "";
+        string praznicniPrviDan = "";
+
+        if (sviParts.Length == 1 && praznicniParts.Length == 1)
+        {; }
+        else if (sviParts.Length == 2 && praznicniParts.Length == 2)
+        {
+            sviPrviDan = sviParts[0];
+            sviDatumi = sviParts[1];
+            radniDatumi = sviDatumi;
+            praznicniPrviDan = praznicniParts[0];
+            praznicniDatumi = praznicniParts[1];
+        }
+        else if (sviParts.Length == 2 && praznicniParts.Length <= 1)
+        {
+            sviPrviDan = sviParts[0];
+            sviDatumi = sviParts[1];
+            radniDatumi = sviDatumi;
+        }
+        else if (sviParts.Length == 1 && praznicniParts.Length == 2)
+        {
+            praznicniPrviDan = praznicniParts[0];
+            praznicniDatumi = praznicniParts[1];
+        }
+        else
+        {
+            throw new Exception($"sviParts.Length == {sviParts.Length}, praznicniParts.Length == {praznicniParts.Length}");
+        }
+
+        if (string.IsNullOrEmpty(praznicniPrviDan))
+        {
+            if (string.IsNullOrEmpty(sviPrviDan))
+                throw new Exception($"Prvi dani svi prazni.");
+        }
+        else if (string.IsNullOrEmpty(sviPrviDan))
+            throw new Exception($"Prvi dan je prazan, a praznicni nije.");
+        else if (praznicniPrviDan != sviPrviDan)
+            throw new Exception($"{praznicniPrviDan} != {sviPrviDan})");
+
+        if (!string.IsNullOrEmpty(praznicniDatumi))
+        {
+            radniDatumi = radniDatumi.Replace(praznicniDatumi, "");
+        }
+
+        return (sviPrviDan, sviDatumi, radniDatumi, praznicniDatumi);
+    }
+
+    private static string IzvadiSveDatume(HtmlNode danNode)
+    {
+        return danNode.InnerText.Trim();
+    }
+
+    private static string IzvadiPraznicneDatume(HtmlNode danNode)
+    {
+        StringBuilder sb = new StringBuilder();
+
+        IzvadiPraznicneDatume2(sb, "", danNode);
+
+        return sb.ToString().Trim();
+    }
+
+    private static void IzvadiPraznicneDatume2(StringBuilder sb, string parentNodeName, HtmlNode node)
     {
         //foreach (var node in danNode.ChildNodes)
         //{
@@ -29,13 +124,15 @@ internal class Program
                 {
                     //Console.WriteLine($"===================>>>    {parentNodeName}+{nodeName}   {nodeInnerText}  ({attribute.Name}) = {attribute.Value}");
                     Console.WriteLine($"===================>>>    {nodeInnerText} ");
+                    sb.Append(nodeInnerText);
+                    sb.Append(',');
                 }
             }
 
         if (node.ChildNodes.Count > 0)
             foreach (var childNode in node.ChildNodes)
             {
-                IzvadiDatume2(parentNodeName + "/" + node.Name, childNode);
+                IzvadiPraznicneDatume2(sb, parentNodeName + "/" + node.Name, childNode);
             }
         //}
     }
@@ -71,21 +168,21 @@ internal class Program
 
         foreach (var dan in dani)
         {
-            List<DateTime> datumi = IzvadiDatume(dan.danNode);
+            (List<DateTime> sviDatumi, List<DateTime> radniDatumi, List<DateTime> neradniDatumi) = IzvadiDatume(dan.danNode);
 
-            foreach (var datum in datumi)
-            {
-                Console.WriteLine($"Datum: {datum}");
+            //foreach (var datum in datumi)
+            //{
+            //    Console.WriteLine($"Datum: {datum}");
 
-                foreach (string vrijemeIlokacija in dan.VremenaILokacije)
-                {
-                    (string vrijeme, string lokacija) = ObradiVrijemeILokaciju(vrijemeIlokacija);
+            //    foreach (string vrijemeIlokacija in dan.VremenaILokacije)
+            //    {
+            //        (string vrijeme, string lokacija) = ObradiVrijemeILokaciju(vrijemeIlokacija);
 
-                    PodaciZaSesiju sesija = new PodaciZaSesiju(dan.Dan, $"{datum:yyyy-NN-dd}", vrijeme, lokacija);
+            //        PodaciZaSesiju sesija = new PodaciZaSesiju(dan.Dan, $"{datum:yyyy-NN-dd}", vrijeme, lokacija);
 
-                    sesije.Add(sesija);
-                }
-            }
+            //        sesije.Add(sesija);
+            //    }
+            //}
         }
 
         return sesije;
