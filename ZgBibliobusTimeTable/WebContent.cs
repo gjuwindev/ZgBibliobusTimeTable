@@ -1,6 +1,4 @@
 ﻿using HtmlAgilityPack;
-using HtmlLinkChecker;
-using System.Diagnostics;
 using System.Text;
 
 namespace ZgBibliobusTimeTable;

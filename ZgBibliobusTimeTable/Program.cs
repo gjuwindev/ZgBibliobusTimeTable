@@ -1,15 +1,45 @@
-﻿using System;
-using System.Net.Http;
-using HtmlAgilityPack;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using System.Text;
-using HtmlLinkChecker;
+﻿using HtmlAgilityPack;
 
 namespace ZgBibliobusTimeTable;
 
 internal class Program
 {
+    private static List<DateTime> IzvadiDatume(HtmlNode danNode)
+    {
+        //if (danNode.InnerText.IndexOf("30.5.") > -1)
+            IzvadiDatume2("", danNode);
+
+        return new List<DateTime>();
+    }
+
+    private static void IzvadiDatume2(string parentNodeName, HtmlNode node)
+    {
+        //foreach (var node in danNode.ChildNodes)
+        //{
+        string nodeName = node.Name;
+        string nodeInnerText = node.InnerText.Trim();
+        string nodeInnerHTML = node.InnerHtml.Trim();
+
+        IEnumerable<HtmlAttribute> nodeAttributes = node.GetAttributes();
+
+        if (nodeAttributes is not null && nodeAttributes.Count() > 0)
+            foreach (var attribute in nodeAttributes)
+            {
+                if (attribute.Value.IndexOf("color:") > -1)
+                {
+                    //Console.WriteLine($"===================>>>    {parentNodeName}+{nodeName}   {nodeInnerText}  ({attribute.Name}) = {attribute.Value}");
+                    Console.WriteLine($"===================>>>    {nodeInnerText} ");
+                }
+            }
+
+        if (node.ChildNodes.Count > 0)
+            foreach (var childNode in node.ChildNodes)
+            {
+                IzvadiDatume2(parentNodeName + "/" + node.Name, childNode);
+            }
+        //}
+    }
+
     static void Main(string[] args)
     {
 
@@ -41,14 +71,20 @@ internal class Program
 
         foreach (var dan in dani)
         {
-            foreach (string vrijemeIlokacija in dan.VremenaILokacije)
+            List<DateTime> datumi = IzvadiDatume(dan.danNode);
+
+            foreach (var datum in datumi)
             {
-                string datum = "17.11.1957.";
-                (string vrijeme, string lokacija) = ObradiVrijemeILokaciju(vrijemeIlokacija);
+                Console.WriteLine($"Datum: {datum}");
 
-                PodaciZaSesiju sesija = new PodaciZaSesiju(dan.Dan, datum, vrijeme, lokacija);
+                foreach (string vrijemeIlokacija in dan.VremenaILokacije)
+                {
+                    (string vrijeme, string lokacija) = ObradiVrijemeILokaciju(vrijemeIlokacija);
 
-                sesije.Add(sesija);
+                    PodaciZaSesiju sesija = new PodaciZaSesiju(dan.Dan, $"{datum:yyyy-NN-dd}", vrijeme, lokacija);
+
+                    sesije.Add(sesija);
+                }
             }
         }
 

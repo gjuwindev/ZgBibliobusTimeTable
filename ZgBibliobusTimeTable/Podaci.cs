@@ -1,6 +1,6 @@
 ﻿using HtmlAgilityPack;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-namespace HtmlLinkChecker;
+
+namespace ZgBibliobusTimeTable;
 
 public class PodaciZaSesiju
 {
