@@ -1,5 +1,6 @@
 ﻿using HtmlAgilityPack;
 using System.Text;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ZgBibliobusTimeTable;
 
@@ -13,7 +14,24 @@ internal class Program
         List<DateTime> radniDatumiList = StringDatumiToDateList(radniDatumi);
         List<DateTime> neradniDatumiList = StringDatumiToDateList(neradniDatumi);
 
+        if (sviDatumiList.Count == 0)
+            throw new Exception($"Nema datuma za dan {prviDan}.");
+        if (radniDatumiList.Count == 0)
+            throw new Exception($"Nema radnih datuma za dan {prviDan}.");
+
+        ProvjeriPrviDan(prviDan, sviDatumiList[0]);
+
         return (sviDatumiList, radniDatumiList, neradniDatumiList);
+    }
+
+    private static void ProvjeriPrviDan(string prviDan, DateTime dateTime)
+    {
+        string[] dani = ["nedjelja", "ponedjeljak", "utorak", "srijeda", "četvrtak", "petak", "subota"];
+
+        int danIndex = Array.IndexOf(dani, prviDan.ToLower());
+
+        if (danIndex != (int)dateTime.DayOfWeek)
+            throw new Exception($"Prvi dan {prviDan} ne odgovara datumu {dateTime:yyyy-MM-dd}.");
     }
 
     private static List<DateTime> StringDatumiToDateList(string stringDatumi)
@@ -22,16 +40,24 @@ internal class Program
 
         string[] parts = stringDatumi.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+        int tekucaGodina = DateTime.Now.Year;
         foreach (string part in parts)
         {
-            if (DateTime.TryParse(part, out DateTime datum))
-            {
-                datumi.Add(datum);
-            }
+            string[] subparts = part.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            string datumString;
+
+            if (subparts.Length == 2)
+                datumString = $"{tekucaGodina}-{subparts[1]}-{subparts[0]}";
+            else if (subparts.Length == 3 && int.TryParse(subparts[2], out tekucaGodina))
+                datumString = $"{tekucaGodina}-{subparts[1]}-{subparts[0]}";
             else
-            {
-                Console.WriteLine($"Neispravan datum: {part}");
-            }
+                throw new Exception($"Neispravan format datuma: {part}");
+
+            if (!DateTime.TryParse(datumString, out DateTime datum) ||
+                                  (datum.Year < 2000 || datum.Year > 2100))
+                throw new Exception($"Neispravan datum: {datumString}");
+
+            datumi.Add(datum);
         }
 
         return datumi;
@@ -95,7 +121,7 @@ internal class Program
 
     private static string IzvadiSveDatume(HtmlNode danNode)
     {
-        return danNode.InnerText.Trim();
+        return danNode.InnerText.Replace("&nbsp;", "").Replace(" ", "").Trim();
     }
 
     private static string IzvadiPraznicneDatume(HtmlNode danNode)
@@ -104,13 +130,11 @@ internal class Program
 
         IzvadiPraznicneDatume2(sb, "", danNode);
 
-        return sb.ToString().Trim();
+        return sb.ToString().Replace("&nbsp;", "").Replace(" ", "").Trim();
     }
 
     private static void IzvadiPraznicneDatume2(StringBuilder sb, string parentNodeName, HtmlNode node)
     {
-        //foreach (var node in danNode.ChildNodes)
-        //{
         string nodeName = node.Name;
         string nodeInnerText = node.InnerText.Trim();
         string nodeInnerHTML = node.InnerHtml.Trim();
@@ -123,7 +147,7 @@ internal class Program
                 if (attribute.Value.IndexOf("color:") > -1)
                 {
                     //Console.WriteLine($"===================>>>    {parentNodeName}+{nodeName}   {nodeInnerText}  ({attribute.Name}) = {attribute.Value}");
-                    Console.WriteLine($"===================>>>    {nodeInnerText} ");
+                    //Console.WriteLine($"===================>>>    {nodeInnerText} ");
                     sb.Append(nodeInnerText);
                     sb.Append(',');
                 }
@@ -134,7 +158,6 @@ internal class Program
             {
                 IzvadiPraznicneDatume2(sb, parentNodeName + "/" + node.Name, childNode);
             }
-        //}
     }
 
     static void Main(string[] args)
@@ -170,20 +193,33 @@ internal class Program
         {
             (List<DateTime> sviDatumi, List<DateTime> radniDatumi, List<DateTime> neradniDatumi) = IzvadiDatume(dan.danNode);
 
-            //foreach (var datum in datumi)
-            //{
-            //    Console.WriteLine($"Datum: {datum}");
+            foreach (var datum in radniDatumi)
+            {
+                foreach (string vrijemeIlokacija in dan.VremenaILokacije)
+                {
+                    (string vrijeme, string lokacija) = ObradiVrijemeILokaciju(vrijemeIlokacija);
 
-            //    foreach (string vrijemeIlokacija in dan.VremenaILokacije)
-            //    {
-            //        (string vrijeme, string lokacija) = ObradiVrijemeILokaciju(vrijemeIlokacija);
+                    PodaciZaSesiju sesija = new PodaciZaSesiju(dan.Dan, $"{datum:yyyy-MM-dd}", vrijeme, lokacija);
 
-            //        PodaciZaSesiju sesija = new PodaciZaSesiju(dan.Dan, $"{datum:yyyy-NN-dd}", vrijeme, lokacija);
+                    sesije.Add(sesija);
+                }
+            }
 
-            //        sesije.Add(sesija);
-            //    }
-            //}
+            foreach (var datum in neradniDatumi)
+            {
+                PodaciZaSesiju sesija = new PodaciZaSesiju(dan.Dan, $"{datum:yyyy-MM-dd}", "", "=== neradni dan ===");
+
+                sesije.Add(sesija);
+            }
         }
+
+        sesije.Sort((x, y) =>
+        {
+            int result = x.Datum.CompareTo(y.Datum);
+            if (result == 0)
+                result = x.Vrijeme.CompareTo(y.Vrijeme);
+            return result;
+        });
 
         return sesije;
     }
