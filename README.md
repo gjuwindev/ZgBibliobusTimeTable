@@ -9,3 +9,9 @@ Slobodno za bas sve namjene, osobito da netko stavi na neku web stranicu, pa da 
 Kod radi tako kako radi, nema nikakvih jamstava. Radit ce dok oni ne promijene format svoje tablice.
 
 Gjuro Kladaric, 2025-04-24, Zagreb, Croatia
+
+============================
+
+this repository if forked and output presented in a webpage, at:
+
+https://allixsenos.github.io/ZgBibliobusTimeTable/
